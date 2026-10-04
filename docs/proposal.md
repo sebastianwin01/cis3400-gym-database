@@ -127,7 +127,33 @@ Member 4 will be responsible for the `analysis` directory and will organize the 
 As a team milestone, all four members will review the repository before each major submission. The design milestone will require completion of the business rules, ER diagram, data dictionary, and normalization explanation. The implementation milestone will require working SQL scripts and sample data. The verification milestone will require successful testing of constraints and analytical queries, and the final milestone will require the database to be reproducible and the five analytical reports to be ready for demonstration. This follows the milestone sequence already described in your proposal.
 
 ---
+##propose file directory tree
 
+cis3400-gym-database/
+│
+├── docs/
+│   ├── CIS3400_Gym_Project_Proposal.docx
+│   └── data_dictionary.md
+│
+├── diagrams/
+│   └── gym_er_diagram.png
+│
+├── sql/
+│   ├── create_database.sql
+│   ├── create_tables.sql
+│   ├── insert_data.sql
+│   └── queries.sql
+│
+├── data/
+│   ├── members.csv
+│   ├── memberships.csv
+│   ├── payments.csv
+│   ├── trainers.csv
+│   ├── class_sessions.csv
+│   └── enrollments.csv
+│
+└── analysis/
+    └── analytical_questions.md
 # Meeting Notes
 
 ## Meeting Record 1
