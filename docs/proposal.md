@@ -128,7 +128,9 @@ As a team milestone, all four members will review the repository before each maj
 
 ---
 ##propose file directory tree
+## Project Repository Structure
 
+```text
 cis3400-gym-database/
 │
 ├── docs/
@@ -154,7 +156,41 @@ cis3400-gym-database/
 │
 └── analysis/
     └── analytical_questions.md
+```text
+
+
+And if you want the **workflow tree** too, this is useful underneath it:
+
+```
+
+And if you want the **workflow tree** too, this is useful underneath it:
+
+```markdown
+## Member Registration Workflow
+
+```text
+New Gym Member
+      │
+      ▼
+members
+      │
+      ▼
+memberships
+      │
+      ├──► membership_plans
+      │
+      ▼
+payments
+      │
+      ▼
+class_sessions
+      │
+      ▼
+enrollments
+```
+
 # Meeting Notes
+
 
 ## Meeting Record 1
 
