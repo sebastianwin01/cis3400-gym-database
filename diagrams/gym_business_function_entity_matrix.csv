@@ -1,0 +1,13 @@
+Category,Business Function,members,membership_plans,memberships,payments,trainers,class_types,class_sessions,enrollments
+OPERATIONS,Member registration,X,,,,,,,
+OPERATIONS,Plan and pricing management,,X,,,,,,
+OPERATIONS,Membership signup and renewal,X,X,X,,,,,
+OPERATIONS,Payment collection,,,X,X,,,,
+OPERATIONS,Class scheduling,,,,,X,X,X,
+OPERATIONS,Class reservations and cancellations,X,,X,,,X,X,X
+OPERATIONS,Attendance recording,X,,,,,,X,X
+REPORTS,Monthly revenue by membership plan,,X,X,X,,,,
+REPORTS,30-day membership renewal rate,,X,X,,,,,
+REPORTS,Class booking utilization,,,,,,X,X,X
+REPORTS,Attendance and no-show rates,,,,,,X,X,X
+REPORTS,Trainer teaching workload,,,,,X,,X,
