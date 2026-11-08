@@ -14,7 +14,7 @@ Luxury Gym Management Database
 A premium fitness club offering memberships, fitness classes, luxury amenities, and free trials.
 
 ### Business Problem
-A luxury gym needs an efficient way to manage member information, membership plans, payments, gym attendance, fitness class enrollment, and reservations for premium amenities.
+A luxury gym needs an efficient way to manage member information, membership plans, payments, gym attendance, fitness class enrollment.
 
 Without a centralized database, management may struggle to track facility utilization, understand member behavior, evaluate membership performance, and determine which services generate the most demand.
 
