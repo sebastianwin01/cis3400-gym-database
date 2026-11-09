@@ -1,177 +1,122 @@
-# Gym Management Database — Project Roadmap
+# Luxury Gym Management Database
 
 **Course:** CIS 3400  
-**Project:** Luxury Gym Management Database  
 **Database:** MySQL 8  
-**Focus:** Relational database design, SQL implementation, and data analysis
+**Focus:** Relational database design, data integrity, and SQL analysis
 
-## Project objective
+## Project overview
 
-Build a database for a luxury gym that tracks **members, membership plans, gym visits, free trials, payments, fitness classes, and amenities** (such as a sauna and cold plunge). Use the resulting data to answer the five analytical questions in the project proposal.
+This project develops a relational database for a fictional luxury gym with multiple locations. The database organizes information about **members, membership plans, subscriptions, gym visits, payments, and locations**.
 
-**Scope:** This is a database-and-analysis project, **not** a full gym website or app. The database should reflect real-world gym operations while remaining small enough to implement and test.
+The goal is to maintain consistent records and use SQL to explore gym attendance, membership preferences, and revenue across branches. This is a **database design and analysis project**, not a gym website or mobile app.
 
----
+## Business objectives
 
-## Progress tracker
+- Store member information and available membership plans.
+- Track members' subscriptions and membership history.
+- Record gym check-ins and check-outs at different locations.
+- Record membership payments and the branch associated with each payment.
+- Analyze member activity, plan popularity, and payment revenue.
 
-> Mark each task complete by changing `[ ]` to `[x]`. Complete the design before inserting sample records or writing analytical queries.
+**Membership access model:** A valid membership may be used at any active gym location. A member's visits are recorded at the branch actually visited; the database does not restrict membership to one home location.
 
-- [ ] **Step 1 — Define business requirements**
-  - [ ] Identify membership options: Basic vs. Premium, monthly vs. annual, contract vs. non-contract.
-  - [ ] Define how free trials work and what counts as conversion to a paid membership.
-  - [ ] Define how gym check-ins and check-outs are recorded.
-  - [ ] Define class booking, class attendance, cancellation, and no-show rules.
-  - [ ] Define amenity reservations, usage, and any additional charges.
-  - [ ] Identify data needed for each of the five analytical questions.
-  - **Deliverable:** `docs/requirements.md`
+## Project scope
 
-- [ ] **Step 2 — Define tables, columns, and data types**
-  - [ ] Identify all entities and assign each a primary key.
-  - [ ] List columns and choose suitable MySQL types (`INT`, `VARCHAR`, `DATE`, `DATETIME`, `DECIMAL`, etc.).
-  - [ ] Identify foreign keys and required vs. optional fields.
-  - [ ] Decide which historical information must be retained (e.g., past membership plans).
-  - [ ] Prepare a data dictionary describing each field.
-  - **Deliverable:** `docs/data_dictionary.md`
+The project uses **six tables, 34 attributes, and six foreign-key relationships**. No additional entities are planned.
 
-- [ ] **Step 3 — Create the ER diagram**
-  - [ ] Draw entities and their relationships.
-  - [ ] Identify one-to-many and many-to-many relationships.
-  - [ ] Use junction tables for class enrollments and amenity reservations where needed.
-  - [ ] Check that the diagram supports every proposed analytical question.
-  - **Deliverable:** `diagrams/gym_er_diagram.png`
+| Table | Purpose | Main fields |
+| --- | --- | --- |
+| `members` | Member profiles | Member ID, name, email, phone, date of birth, joining date |
+| `membership_plans` | Available plans | Plan ID, name, level, duration in months, price |
+| `memberships` | Member subscriptions | Membership ID, member ID, plan ID, start date, end date, creation timestamp |
+| `gym_visits` | Attendance at each branch | Visit ID, member ID, location ID, check-in and check-out timestamps |
+| `payments` | Payments associated with subscriptions and branches | Payment ID, membership ID, location ID, amount, payment date |
+| `locations` | Gym branches | Location ID, name, borough, opening time, closing time, active flag |
 
-- [ ] **Step 4 — Normalize the schema**
-  - [ ] Check First Normal Form (1NF): atomic values and no repeating groups.
-  - [ ] Check Second Normal Form (2NF): non-key attributes depend on the whole key.
-  - [ ] Check Third Normal Form (3NF): remove transitive dependencies.
-  - [ ] Revisit the ER diagram and data dictionary if the design changes.
-  - **Deliverable:** `docs/normalization.md`
+### Relationships
 
-- [ ] **Step 5 — Create the MySQL schema**
-  - [ ] Create the database and tables in dependency order.
-  - [ ] Add primary keys, foreign keys, `NOT NULL`, `UNIQUE`, and appropriate `CHECK` constraints.
-  - [ ] Choose suitable `ON DELETE` / `ON UPDATE` behavior; avoid accidental deletion of history.
-  - [ ] Run the schema script successfully in a fresh MySQL database.
-  - **Deliverable:** `sql/01_create_tables.sql`
+All six relationships are **one-to-many (1:N)**:
 
-- [ ] **Step 6 — Insert realistic sample data**
-  - [ ] Generate fictional member records with varied ages and registration dates.
-  - [ ] Populate Basic and Premium plans, billing periods, and contract types.
-  - [ ] Add membership histories and free trials with realistic dates.
-  - [ ] Add 3–6 months of gym visits at varied times and days.
-  - [ ] Populate class schedules, enrollments, attendance, and amenity usage.
-  - [ ] Record membership payments and extra service charges.
-  - [ ] Ensure enough variation to make each analytical query meaningful.
-  - **Deliverables:** `sql/02_insert_data.sql` and optional `data/*.csv`
+1. `members` → `memberships`
+2. `membership_plans` → `memberships`
+3. `members` → `gym_visits`
+4. `locations` → `gym_visits`
+5. `memberships` → `payments`
+6. `locations` → `payments`
 
-- [ ] **Step 7 — Validate data integrity**
-  - [ ] Verify that every foreign key points to an existing record.
-  - [ ] Test invalid or duplicate values and expected constraint failures.
-  - [ ] Check for impossible date sequences and overlapping records where prohibited.
-  - [ ] Compare attendance, reservations, and payment totals against sample expectations.
-  - **Deliverable:** `sql/03_validation.sql`
+Primary keys identify individual records; foreign keys connect related records. The `memberships` table links members to plans, and the `gym_visits` table links members to branches.
 
-- [ ] **Step 8 — Write analytical SQL queries**
-  - [ ] Answer Question 1: peak gym usage, visit days/hours, age statistics, plan counts.
-  - [ ] Answer Question 2: class and amenity attendance, Premium share, Basic paid usage.
-  - [ ] Answer Question 3: free-trial conversion and member retention.
-  - [ ] Answer Question 4: plan popularity and membership duration by group/contract type.
-  - [ ] Answer Question 5: usage and amenity preferences by age group and time of day.
-  - [ ] Use `JOIN`, `GROUP BY`, `HAVING`, `CASE`, aggregates, date functions, and subqueries/CTEs as appropriate.
-  - [ ] Add short comments stating what each query measures.
-  - **Deliverable:** `sql/04_analysis.sql`
+### Basic business rules
 
-- [ ] **Step 9 — Create reusable views and summarize findings**
-  - [ ] Create useful views for daily traffic, class attendance, plan participation, and retention cohorts.
-  - [ ] Save representative query results.
-  - [ ] Create simple tables or charts for the five questions.
-  - [ ] Explain actionable insights for staffing, class schedules, amenities, and memberships.
-  - **Deliverables:** `sql/05_views.sql` and `analysis/results.md`
+- A member has a unique ID and email address.
+- A membership refers to one existing member and one existing plan. A member may have multiple membership records over time.
+- A gym visit refers to one member and one location; `check_out_at` can be `NULL` until the member leaves.
+- A payment refers to one membership and one location.
+- Membership `end_date` may be `NULL`; the precise interpretation of an open-ended membership must be agreed before calculating active subscriptions.
+- Plan durations and payment amounts must be positive, and recorded end/check-out dates must not precede their start/check-in dates.
+- All records are fictional and used for coursework.
 
-- [ ] **Step 10 — Final testing, documentation, and GitHub submission**
-  - [ ] Rebuild the database from scratch using the SQL scripts in order.
-  - [ ] Confirm all five analytical questions can be answered.
-  - [ ] Add instructions, project overview, ER diagram, and findings to `README.md`.
-  - [ ] Review SQL formatting and remove any sensitive or real personal information.
-  - [ ] Commit and push the finished project to GitHub.
-  - **Deliverables:** `README.md`, completed repository, and project report/presentation as required.
+### Out of scope
 
----
+Free trials, classes, trainers, amenity reservations, payroll, inventory, payment processing, and a customer-facing app are not included in this version.
 
-## Proposed database tables
+## Analytical questions
 
-| Table | Main responsibility | Key relationships |
-|---|---|---|
-| `members` | Member profiles and dates of birth | Referenced by visits, memberships, trials, reservations |
-| `membership_plans` | Basic/Premium offerings, price, and billing configuration | Referenced by memberships |
-| `memberships` | Member enrollment history, terms, start/end dates, and status | Member → plan |
-| `gym_visits` | Gym entry and exit timestamps | Visit → member |
-| `free_trials` | Trial start/end dates and conversion information | Trial → member; optionally converted membership |
-| `amenities` | Sauna, cold plunge, and other amenity definitions | Referenced by amenity reservations |
-| `amenity_reservations` | Bookings and actual amenity usage | Reservation → member and amenity |
-| `class_types` | Yoga, Pilates, strength training, etc. | Referenced by scheduled sessions |
-| `class_sessions` | Scheduled class time, capacity, and instructor information | Session → class type |
-| `class_enrollments` | Member bookings, attendance status, and extra charges | Enrollment → member and session |
-| `payments` | Membership fees and service charges | Payment → member and appropriate charge/source |
+The database is designed to answer five general business questions:
 
-**Design notes:**
+| # | Question | Relevant tables |
+| --- | --- | --- |
+| 1 | Which days and hours are busiest at each gym location? | `gym_visits`, `locations` |
+| 2 | Which membership plans are chosen most often? | `memberships`, `membership_plans` |
+| 3 | How does recorded payment revenue compare across locations and boroughs? | `payments`, `locations` |
+| 4 | How does gym attendance vary across member age groups? | `members`, `gym_visits` |
+| 5 | How frequently do members visit, and how long do their visits last on average? | `members`, `gym_visits` |
 
-- Store **date of birth**, not only current age, so age groups can be calculated consistently.
-- Keep membership **history**, not only a member's current plan.
-- Distinguish **booked**, **attended**, **cancelled**, and **no-show** statuses where relevant.
-- Make trial conversion and retention definitions precise (e.g., converted within 30 days, retained after 90 days).
-- Avoid confusing **gym visits** with **class attendance** or **amenity usage**; they measure different activities.
-- A single `payments` table may need a payment category and references to membership/extra charges; finalize these details in Step 2.
+Queries will use SQL techniques such as `JOIN`, `GROUP BY`, aggregate functions, date/time functions, `CASE`, and subqueries where useful.
 
----
+## Project roadmap
 
-## Analytical questions from the proposal
+> Use this checklist to track deliverables. Mark items complete when the corresponding files have been finalized and tested.
 
-### Question 1 — How does peak gym usage break down?
+- [ ] **Step 1 — Define business requirements**  
+  Describe the business objectives, basic rules, scope, and analytical questions.  
+  **Deliverable:** `docs/01_business_requirements.md`
 
-- [ ] Which **days** have the most member visits?
-- [ ] Which **times** have the most member visits?
-- [ ] How many gym members are there, and what are the **average, median, and mode** for age?
-- [ ] How many members use each **membership type**?
+- [ ] **Step 2 — Identify entities and attributes**  
+  Confirm the six tables, their columns, MySQL data types, primary keys, foreign keys, and nullable fields.  
+  **Deliverable:** `docs/02_entities_and_attributes.md`
 
-**Main tables:** `gym_visits`, `members`, `memberships`, `membership_plans`.
+- [ ] **Step 3 — Design the ER diagram**  
+  Maintain the schema in DBML and generate a Crow's Foot ER diagram showing the six one-to-many relationships.  
+  **Deliverables:** `diagrams/03_gym_database.dbml`, `diagrams/gym_erd.png`
 
-### Question 2 — Which amenities and classes have the highest attendance?
+- [ ] **Step 4 — Normalize the schema**  
+  Review the tables against First, Second, and Third Normal Forms (1NF, 2NF, and 3NF); document any changes.  
+  **Deliverable:** `docs/04_normalization.md`
 
-- [ ] What percentage of attendance comes from **Premium** members?
-- [ ] What percentage comes from **Basic** members paying for individual classes?
-- [ ] Which classes are attended most frequently?
-- [ ] How does amenity use vary by member/category and time?
+- [ ] **Step 5 — Create the MySQL database**  
+  Write and run `CREATE TABLE` statements with appropriate keys, `NOT NULL`, `UNIQUE`, and `CHECK` constraints.  
+  **Deliverable:** `sql/01_create_tables.sql`
 
-**Main tables:** `class_sessions`, `class_enrollments`, `amenities`, `amenity_reservations`, `memberships`, `membership_plans`.
+- [ ] **Step 6 — Insert sample data**  
+  Populate plans, branches, members, subscriptions, payments, and several months of visit activity using fictional records.  
+  **Deliverable:** `sql/02_insert_data.sql` (optional CSV files in `data/`)
 
-### Question 3 — What are retention rates after a free trial or first month?
+- [ ] **Step 7 — Validate data integrity**  
+  Test referential integrity, unique values, required fields, and sensible dates and amounts.  
+  **Deliverable:** `sql/03_validation.sql`
 
-- [ ] How does the free-trial program affect paid membership conversion and retention?
-- [ ] Is trial participation associated with longer membership duration?
+- [ ] **Step 8 — Write analytical queries**  
+  Answer the five business questions and document how each result is calculated.  
+  **Deliverable:** `sql/04_analysis.sql`
 
-**Main tables:** `free_trials`, `members`, `memberships`.
+- [ ] **Step 9 — Summarize findings**  
+  Optionally create reusable SQL views, save sample results, and summarize findings in tables or charts.  
+  **Deliverables:** `sql/05_views.sql` (optional), `analysis/results.md`
 
-### Question 4 — Which membership plans are most popular?
-
-- [ ] Which plans have the most active enrollments?
-- [ ] Which demographic groups select **Premium** plans more often?
-- [ ] Which groups tend to choose **Basic** memberships?
-- [ ] Do contract or non-contract members remain enrolled longer?
-
-**Main tables:** `members`, `membership_plans`, `memberships`.
-
-### Question 5 — How does usage differ by member category?
-
-- [ ] Which age groups visit most regularly?
-- [ ] Which age group has the most memberships?
-- [ ] What are the peak gym hours by age group?
-- [ ] Does time of day relate to which amenities members use?
-
-**Main tables:** `members`, `gym_visits`, `memberships`, `amenity_reservations`, `amenities`.
-
----
+- [ ] **Step 10 — Final testing and submission**  
+  Rebuild the database from a clean environment, rerun the analysis, update this README, and commit the final files to GitHub.  
+  **Deliverable:** Completed repository
 
 ## Suggested repository structure
 
@@ -179,50 +124,55 @@ Build a database for a luxury gym that tracks **members, membership plans, gym v
 gym-management-database/
 ├── README.md
 ├── docs/
-│   ├── requirements.md
-│   ├── data_dictionary.md
-│   └── normalization.md
+│   ├── 01_business_requirements.md
+│   ├── 02_entities_and_attributes.md
+│   └── 04_normalization.md
 ├── diagrams/
-│   └── gym_er_diagram.png
+│   ├── 03_gym_database.dbml
+│   └── gym_erd.png
 ├── sql/
 │   ├── 01_create_tables.sql
 │   ├── 02_insert_data.sql
 │   ├── 03_validation.sql
 │   ├── 04_analysis.sql
-│   └── 05_views.sql
-├── data/
-│   └── sample CSV files (optional)
+│   └── 05_views.sql             # Optional
+├── data/                       # Optional fictional CSVs
 └── analysis/
     └── results.md
 ```
 
-## Example analysis query
+## Example SQL analysis
 
-**Question:** Which weekdays have the highest number of gym visits?
+**Question:** Which weekdays have the most gym visits?
 
 ```sql
 SELECT
-    DAYNAME(check_in_time) AS day_of_week,
+    DAYNAME(check_in_at) AS day_of_week,
     COUNT(*) AS total_visits
 FROM gym_visits
-GROUP BY
-    DAYOFWEEK(check_in_time),
-    DAYNAME(check_in_time)
+GROUP BY DAYOFWEEK(check_in_at), DAYNAME(check_in_at)
 ORDER BY total_visits DESC;
 ```
 
-This assumes one row per visit and a `check_in_time` field in `gym_visits`. The query counts **visits**, not unique members or total time spent in the gym.
+This query uses the actual `check_in_at` field and counts **visit records**, not unique members. The same analysis can be broken down by location using `gym_visits.location_id` and a join to `locations`.
 
----
+## Data interpretation notes
+
+- `check_out_at` is nullable until a member leaves; exclude unfinished visits when calculating average visit duration.
+- `date_of_birth` is optional; exclude missing values from age-based calculations.
+- `end_date` is optional. Membership validity must be defined consistently using plan duration and/or the recorded end date before reporting active subscriptions.
+- `payments` has no payment status or refund field. Revenue reports therefore sum **recorded payment amounts**, assuming the sample payments represent completed payments.
+- `membership_plans.price` describes the plan's stored price and is not necessarily the amount paid historically; use `payments.amount` for revenue analysis.
+- `locations.opening_time` and `closing_time` represent general branch hours, not day-specific schedules.
 
 ## Completion criteria
 
-- [ ] ER diagram matches the implemented schema.
-- [ ] The schema can be created from an empty MySQL database.
-- [ ] Sample data is fictional, consistent, and sufficient for meaningful analysis.
-- [ ] Primary/foreign keys and integrity checks work as expected.
-- [ ] SQL queries answer **all five** main questions and their subquestions.
-- [ ] Findings are documented with understandable tables or charts.
-- [ ] `README.md` explains setup, design decisions, and how to run the queries.
+- [ ] The data dictionary, DBML, ER diagram, and SQL tables agree.
+- [ ] The database builds successfully from the SQL scripts.
+- [ ] All six foreign keys and relevant constraints work.
+- [ ] Fictional sample data covers multiple branches, plans, dates, and members.
+- [ ] The five analytical questions can be answered using SQL.
+- [ ] Query results and main findings are documented clearly.
+- [ ] The README explains the project, structure, and how to run its scripts.
 
-**Start here:** Complete **Step 1 — Define business requirements**, then continue through schema design and normalization before writing SQL.
+**Next milestone:** Finalize the six-table ER diagram, then document normalization before implementing the tables in MySQL.
