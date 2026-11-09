@@ -1,280 +1,204 @@
 # Step 2 — Identify Entities and Attributes
 
-**Project:** CIS 3400 — Luxury Gym Management Database  
+**Project:** Luxury Gym Management Database  
+**Course:** CIS 3400  
 **Database:** MySQL 8  
-**Design stage:** Conceptual-to-logical data model (before ER diagram and `CREATE TABLE` statements)  
-**Reference:** `luxury_gym_business_requirements.md`  
-**Scope:** The 11 core entities agreed in Step 1; single fictional gym location.
+**Scope:** 6 tables · 34 attributes · 6 foreign-key relationships  
+**Design approach:** Relational model with multi-location membership access
 
-## 1. Objective
+## 1. Purpose
 
-Identify the business entities that need to be stored in the database, the attributes that describe them, and the proposed keys that will connect their records. This is a **proposed data dictionary**, not final SQL DDL: data types, constraints, and optionality should be confirmed when the ER diagram and database schema are reviewed.
+This document defines the tables, attributes, data types, keys, and relationships for a simplified luxury gym database. The gym has multiple locations, and members with valid memberships may visit any active branch.
 
-**Notation:** **PK** = primary key; **FK** = foreign key; **UQ** = unique; **Required** = a value must be provided; **Optional** = `NULL` is permitted. Proposed identifiers use `BIGINT UNSIGNED` and are intended to be auto-generated.
+The design focuses on four business activities:
 
-## 2. Entity and attribute dictionary
+- Managing members and membership plans.
+- Recording membership subscriptions and payment history.
+- Tracking gym check-ins and check-outs at different branches.
+- Analyzing membership preferences, attendance, and revenue.
 
-### E01 — `members`
+**In scope:** `members`, `membership_plans`, `memberships`, `gym_visits`, `payments`, and `locations`.  
+**Out of scope:** Free trials, fitness classes, amenities, reservations, employees, and payment-processing integrations.
 
-**Purpose:** Store one profile for each gym member or free-trial participant. A person's subscription status is kept in `memberships`, rather than duplicated here.
+### Notation
 
-| Attribute | Proposed MySQL type | Key / required? | Meaning |
-|---|---|---|---|
-| `member_id` | `BIGINT UNSIGNED` | **PK**, required | Unique member identifier. |
-| `first_name` | `VARCHAR(60)` | Required | Member's given name. |
-| `last_name` | `VARCHAR(60)` | Required | Member's surname. |
-| `email` | `VARCHAR(255)` | **UQ**, required | Contact email; unique per profile. |
-| `phone` | `VARCHAR(25)` | Optional | Phone number. |
-| `date_of_birth` | `DATE` | Required | Enables age-group analyses; age itself is calculated rather than stored. |
-| `joined_at` | `DATETIME` | Required | Date and time profile was created. |
-
-**Notes:** Member records should be retained for links to historical bookings, payments, and visits. If the real gym permits shared contact emails, revisit the email uniqueness rule.
-
-### E02 — `membership_plans`
-
-**Purpose:** Define the subscription products the gym sells.
-
-| Attribute | Proposed MySQL type | Key / required? | Meaning |
-|---|---|---|---|
-| `plan_id` | `BIGINT UNSIGNED` | **PK**, required | Unique plan identifier. |
-| `plan_name` | `VARCHAR(100)` | **UQ**, required | Plan label, e.g., Standard, Premium, Elite. |
-| `description` | `TEXT` | Optional | Human-readable description of included benefits. |
-| `plan_price` | `DECIMAL(10,2)` | Required | Price charged for one full plan term; must be nonnegative. |
-| `duration_months` | `SMALLINT UNSIGNED` | Required | Length of the plan term in calendar months; must be greater than zero. |
-| `includes_classes` | `BOOLEAN` (`TINYINT(1)`) | Required | Whether plan permits fitness-class bookings in general. |
-| `includes_amenities` | `BOOLEAN` (`TINYINT(1)`) | Required | Whether plan permits amenity bookings in general. |
-| `is_active` | `BOOLEAN` (`TINYINT(1)`) | Required | Whether this plan is currently available for new purchases. |
-
-**Notes:** `plan_price` refers to the *term price*, not necessarily a monthly fee. The two inclusion flags represent broad entitlements only; granular per-amenity/per-class rights would require additional mapping tables in a future version. Price changes should not retroactively alter historical payment amounts.
-
-### E03 — `memberships`
-
-**Purpose:** Store each member's purchased subscription, dates, status, and renewal lineage. Keep old records rather than overwriting them on renewal.
-
-| Attribute | Proposed MySQL type | Key / required? | Meaning |
-|---|---|---|---|
-| `membership_id` | `BIGINT UNSIGNED` | **PK**, required | Unique subscription instance. |
-| `member_id` | `BIGINT UNSIGNED` | **FK** → `members.member_id`, required | Person who owns the subscription. |
-| `plan_id` | `BIGINT UNSIGNED` | **FK** → `membership_plans.plan_id`, required | Plan purchased. |
-| `start_date` | `DATE` | Required | First eligible day of the subscription. |
-| `end_date` | `DATE` | Required | Last eligible day of the subscription, inclusive. |
-| `membership_status` | `VARCHAR(20)` | Required | Proposed values: `pending`, `active`, `expired`, `canceled`. |
-| `renewed_from_membership_id` | `BIGINT UNSIGNED` | Optional **self-FK** → `memberships.membership_id` | Earlier subscription that this one renews. |
-| `canceled_at` | `DATETIME` | Optional | When a cancellation was recorded, if applicable. |
-| `created_at` | `DATETIME` | Required | When this subscription record was created. |
-
-**Notes:** `end_date >= start_date`. Decide during Step 3 whether cancellation ends access immediately or at the paid-through date. A member can have multiple historical memberships, but any overlapping *eligible* memberships must be handled by an explicit policy to avoid ambiguous plan attribution.
-
-### E04 — `free_trials`
-
-**Purpose:** Store free-trial offers and measure whether participants later become paying members.
-
-| Attribute | Proposed MySQL type | Key / required? | Meaning |
-|---|---|---|---|
-| `trial_id` | `BIGINT UNSIGNED` | **PK**, required | Unique free-trial identifier. |
-| `member_id` | `BIGINT UNSIGNED` | **FK** → `members.member_id`, required | Trial participant. |
-| `start_date` | `DATE` | Required | First eligible trial day. |
-| `end_date` | `DATE` | Required | Last eligible trial day, inclusive. |
-| `trial_status` | `VARCHAR(20)` | Required | Proposed values: `scheduled`, `active`, `completed`, `canceled`. |
-| `includes_classes` | `BOOLEAN` (`TINYINT(1)`) | Required | Trial grants general fitness-class access. |
-| `includes_amenities` | `BOOLEAN` (`TINYINT(1)`) | Required | Trial grants general amenity access. |
-| `created_at` | `DATETIME` | Required | When the trial was registered. |
-
-**Notes:** `end_date >= start_date`. Do **not** store a separate `converted_to_member` boolean: conversion is determined from later records in `memberships`, using the same `member_id`. A conversion within 30 days of trial end means a paid subscription starts after the trial ends and no later than 30 days afterward (final business definition subject to confirmation).
-
-### E05 — `gym_visits`
-
-**Purpose:** Record attendance at the gym and support peak-use and demographic analyses.
-
-| Attribute | Proposed MySQL type | Key / required? | Meaning |
-|---|---|---|---|
-| `visit_id` | `BIGINT UNSIGNED` | **PK**, required | Unique visit identifier. |
-| `member_id` | `BIGINT UNSIGNED` | **FK** → `members.member_id`, required | Person who checked in. |
-| `check_in_at` | `DATETIME` | Required | Time member entered the gym. |
-| `check_out_at` | `DATETIME` | Optional | Time member exited; `NULL` when not recorded yet. |
-
-**Notes:** `check_out_at IS NULL OR check_out_at >= check_in_at`. Access must be validated against a valid membership or trial *at check-in time*. For AQ-01, attribute a visit to the eligible membership covering the visit timestamp; the overlapping-membership policy must prevent ambiguity.
-
-### E06 — `amenities`
-
-**Purpose:** Catalog premium facilities members can use or reserve.
-
-| Attribute | Proposed MySQL type | Key / required? | Meaning |
-|---|---|---|---|
-| `amenity_id` | `BIGINT UNSIGNED` | **PK**, required | Unique amenity identifier. |
-| `amenity_name` | `VARCHAR(100)` | **UQ**, required | Facility name, e.g., Sauna, Pool, Spa Room. |
-| `description` | `TEXT` | Optional | Facility details or usage rules. |
-| `capacity` | `SMALLINT UNSIGNED` | Required | Maximum simultaneous reserved guests; must be positive. |
-| `requires_reservation` | `BOOLEAN` (`TINYINT(1)`) | Required | Whether advance booking is required. |
-| `is_active` | `BOOLEAN` (`TINYINT(1)`) | Required | Whether amenity is offered and bookable. |
-
-**Notes:** For the 11-table version, each amenity row represents one bookable facility. If there are multiple identical rooms or equipment units that need separate availability, model each as a distinct amenity row or introduce a resource table later.
-
-### E07 — `amenity_reservations`
-
-**Purpose:** Record who reserved an amenity, for which time window, and whether the reservation was used.
-
-| Attribute | Proposed MySQL type | Key / required? | Meaning |
-|---|---|---|---|
-| `reservation_id` | `BIGINT UNSIGNED` | **PK**, required | Unique reservation identifier. |
-| `member_id` | `BIGINT UNSIGNED` | **FK** → `members.member_id`, required | Member making the booking. |
-| `amenity_id` | `BIGINT UNSIGNED` | **FK** → `amenities.amenity_id`, required | Booked facility. |
-| `start_at` | `DATETIME` | Required | Reserved start time. |
-| `end_at` | `DATETIME` | Required | Reserved end time. |
-| `guest_count` | `SMALLINT UNSIGNED` | Required | Number of reserved spots; default 1. |
-| `reservation_status` | `VARCHAR(20)` | Required | Proposed values: `booked`, `canceled`, `completed`, `no_show`. |
-| `booked_at` | `DATETIME` | Required | When the booking was made. |
-| `actual_start_at` | `DATETIME` | Optional | Actual start of amenity usage, if tracked. |
-| `actual_end_at` | `DATETIME` | Optional | Actual end of amenity usage, if tracked. |
-
-**Notes:** Require `end_at > start_at`, `guest_count > 0`; actual end cannot precede actual start. For overlapping, non-canceled reservations, the sum of `guest_count` must not exceed `amenities.capacity`. This is a **cross-row time-overlap rule** that needs transactional booking logic, not just a column `CHECK` constraint. Reservation eligibility also depends on an active membership/trial with amenity access.
-
-### E08 — `class_types`
-
-**Purpose:** Describe the kinds of fitness classes available independently from any scheduled occurrence.
-
-| Attribute | Proposed MySQL type | Key / required? | Meaning |
-|---|---|---|---|
-| `class_type_id` | `BIGINT UNSIGNED` | **PK**, required | Unique type identifier. |
-| `class_name` | `VARCHAR(100)` | **UQ**, required | Class category, e.g., Yoga, Pilates, Cycling. |
-| `description` | `TEXT` | Optional | Information about the class. |
-| `default_duration_minutes` | `SMALLINT UNSIGNED` | Required | Typical session length; must be positive. |
-| `difficulty_level` | `VARCHAR(20)` | Optional | Proposed values: `beginner`, `intermediate`, `advanced`, `all_levels`. |
-| `is_active` | `BOOLEAN` (`TINYINT(1)`) | Required | Whether the class type is currently offered. |
-
-**Notes:** A class type is reusable across many scheduled sessions. If a particular session differs from its typical duration, the session's actual start and end times govern.
-
-### E09 — `class_sessions`
-
-**Purpose:** Store each dated and timed occurrence of a fitness class.
-
-| Attribute | Proposed MySQL type | Key / required? | Meaning |
-|---|---|---|---|
-| `class_session_id` | `BIGINT UNSIGNED` | **PK**, required | Unique scheduled session identifier. |
-| `class_type_id` | `BIGINT UNSIGNED` | **FK** → `class_types.class_type_id`, required | Type of class being held. |
-| `starts_at` | `DATETIME` | Required | Scheduled start time. |
-| `ends_at` | `DATETIME` | Required | Scheduled end time. |
-| `max_capacity` | `SMALLINT UNSIGNED` | Required | Maximum number of enrolled attendees; must be positive. |
-| `room_name` | `VARCHAR(80)` | Optional | Where the class takes place. |
-| `session_status` | `VARCHAR(20)` | Required | Proposed values: `scheduled`, `completed`, `canceled`. |
-
-**Notes:** Require `ends_at > starts_at`. Capacity is applied to active booked enrollments, not canceled records. Trainer/staff management is excluded from the current 11-entity scope; add a `trainers` table in a future iteration if instructor assignments become a business requirement.
-
-### E10 — `class_enrollments`
-
-**Purpose:** Represent a member's booking for one scheduled fitness session and the booking outcome.
-
-| Attribute | Proposed MySQL type | Key / required? | Meaning |
-|---|---|---|---|
-| `enrollment_id` | `BIGINT UNSIGNED` | **PK**, required | Unique enrollment identifier. |
-| `member_id` | `BIGINT UNSIGNED` | **FK** → `members.member_id`, required | Enrolled participant. |
-| `class_session_id` | `BIGINT UNSIGNED` | **FK** → `class_sessions.class_session_id`, required | Session booked. |
-| `enrollment_status` | `VARCHAR(20)` | Required | Proposed values: `booked`, `canceled`, `attended`, `no_show`. |
-| `enrolled_at` | `DATETIME` | Required | When the member registered. |
-| `canceled_at` | `DATETIME` | Optional | When this booking was canceled. |
-
-**Notes:** Add **UQ** (`member_id`, `class_session_id`) to prevent duplicate enrollment in the same session. Rebooking a canceled session can update the existing row. Check capacity and membership/trial class access before booking. `attended` versus `no_show` supports attendance analysis.
-
-### E11 — `payments`
-
-**Purpose:** Record transactions against purchased memberships and support revenue reporting.
-
-| Attribute | Proposed MySQL type | Key / required? | Meaning |
-|---|---|---|---|
-| `payment_id` | `BIGINT UNSIGNED` | **PK**, required | Unique payment identifier. |
-| `membership_id` | `BIGINT UNSIGNED` | **FK** → `memberships.membership_id`, required | Subscription being paid for. |
-| `amount` | `DECIMAL(10,2)` | Required | Amount of transaction; must be nonnegative. |
-| `payment_method` | `VARCHAR(20)` | Required | Proposed values: `card`, `cash`, `bank_transfer`. |
-| `payment_status` | `VARCHAR(20)` | Required | Proposed values: `pending`, `completed`, `failed`, `refunded`. |
-| `paid_at` | `DATETIME` | Optional | Successful payment time; normally present for completed payments. |
-| `created_at` | `DATETIME` | Required | When the payment record was created. |
-| `transaction_reference` | `VARCHAR(100)` | Optional, **UQ** when present | External or simulated transaction identifier. |
-
-**Notes:** The historical payment amount must not be reconstructed from the current plan price. Under the simplified business rule, reporting counts completed, non-refunded payments only. Partial refunds and accounting-grade revenue recognition are **out of scope**; in this classroom project the report is more precisely *completed payment receipts* rather than formal accrual-basis recognized revenue.
-
-## 3. Key entity relationships (input for the ER diagram)
-
-| Parent (one) | Child (many) | Relationship | Child FK |
-|---|---|---|---|
-| `members` | `memberships` | One member can hold many subscriptions over time. | `memberships.member_id` |
-| `membership_plans` | `memberships` | One plan can be purchased in many subscriptions. | `memberships.plan_id` |
-| `memberships` | `memberships` | One subscription can be renewed as another. | `memberships.renewed_from_membership_id` (optional) |
-| `members` | `free_trials` | One member can have zero or more trials (subject to trial policy). | `free_trials.member_id` |
-| `members` | `gym_visits` | One member can make many gym visits. | `gym_visits.member_id` |
-| `members` | `amenity_reservations` | One member can make many amenity bookings. | `amenity_reservations.member_id` |
-| `amenities` | `amenity_reservations` | One amenity can have many bookings. | `amenity_reservations.amenity_id` |
-| `class_types` | `class_sessions` | One type can be scheduled repeatedly. | `class_sessions.class_type_id` |
-| `members` | `class_enrollments` | One member can enroll in many class sessions. | `class_enrollments.member_id` |
-| `class_sessions` | `class_enrollments` | One session can have many members. | `class_enrollments.class_session_id` |
-| `memberships` | `payments` | One subscription can have multiple payment attempts or transactions. | `payments.membership_id` |
-
-**Many-to-many relationships resolved by associative entities:**
-
-- `members` ↔ `class_sessions` through `class_enrollments`.
-- `members` ↔ `amenities` through `amenity_reservations`.
-- `members` ↔ `membership_plans` through `memberships` (with dates and historical attributes).
-
-## 4. Attribute classification and important design decisions
-
-- **Primary keys:** Each of the 11 entities has one surrogate ID (`*_id`).
-- **Foreign keys:** Used for all cross-entity relationships listed above; do not copy member names, plan names, or class names into the transactional tables.
-- **Calculated attributes, not stored:** Member age, age group, active-member counts, attendance frequency, trial conversion rate, class attendance rate, and plan popularity. Calculate them in SQL queries. A person's age must be calculated relative to the visit/report date, not today's date for all historical analysis.
-- **Controlled status values:** Use `VARCHAR` with `CHECK` constraints or `ENUM` at SQL implementation; ensure allowed states and transitions are documented.
-- **Money:** Use `DECIMAL`, not `FLOAT`/`DOUBLE`.
-- **Times:** Use `DATETIME` consistently for local gym operations, with the project assuming one New York City location. Document timezone handling before a multi-location expansion.
-- **Privacy:** Store only information required for gym operations and analytics; no medical details or payment-card numbers.
-- **Historical integrity:** Do not delete old visits, bookings, completed payments, or subscriptions merely because a plan, class, or facility is deactivated.
-- **Uniqueness:** Unique emails, plan names, amenity names, class type names, and (`member_id`, `class_session_id`) prevent intended duplicates; confirm business assumptions before implementation.
-- **Capacity and overlap:** Amenity concurrent capacity and class enrollment limits cannot be guaranteed by ordinary per-row `CHECK` constraints. Enforce them with transactions and a defined booking process, then test them.
-- **Service-specific entitlements:** Broad `includes_classes` and `includes_amenities` flags are adequate for the baseline 11-table version. Precise access to particular amenities/classes would need additional mapping tables and is *not fully modeled yet*.
-
-## 5. Requirement coverage
-
-| Business requirement | Key entities / attributes |
+| Notation | Meaning |
 |---|---|
-| BR-01 Member management | `members` (`member_id`, contact fields, `date_of_birth`) and `memberships.membership_status` |
-| BR-02 Membership plans | `membership_plans` (term, price, inclusion flags) |
-| BR-03 Membership history | `memberships` (`start_date`, `end_date`, `renewed_from_membership_id`, status) |
-| BR-04 Free-trial conversion | `free_trials` joined to later `memberships` by `member_id` |
-| BR-05 Gym attendance | `gym_visits` (`check_in_at`, `check_out_at`) |
-| BR-06 Amenity catalog | `amenities` |
-| BR-07 Amenity booking | `amenity_reservations`, `amenities.capacity` |
-| BR-08 Class scheduling | `class_types`, `class_sessions` |
-| BR-09 Enrollment outcomes | `class_enrollments` |
-| BR-10 Payment tracking | `payments` |
-| BR-11 Management reporting | Date/time, fee, status, plan, class, and member-related attributes across entities |
-| BR-12 Data integrity | PKs, FKs, unique rules, allowed statuses, time validity, and transactional booking logic |
+| **PK** | Primary key: uniquely identifies a row. |
+| **FK** | Foreign key: references a row in another table. |
+| **UQ** | Unique: duplicate values are not allowed. |
+| **Required** | `NOT NULL`: a value must be provided. |
+| **Optional** | `NULL` is allowed. |
+| **Auto-increment** | MySQL assigns the next identifier when a row is inserted. |
 
-## 6. Analytical-question coverage
+## 2. Entities and attributes
 
-| Analytical question | Primary join path and measures |
+### Entity 1 — `members`
+
+**Purpose:** Store the basic personal and contact information for each gym member.
+
+| Attribute | MySQL data type | Key / constraint | Description |
+|---|---|---|---|
+| `member_id` | `INT` | **PK**, auto-increment | Unique member identifier. |
+| `first_name` | `VARCHAR(60)` | Required | Member's first name. |
+| `last_name` | `VARCHAR(60)` | Required | Member's last name. |
+| `email` | `VARCHAR(255)` | Required, **UQ** | Member's unique email address. |
+| `phone` | `VARCHAR(25)` | Optional | Contact phone number. |
+| `date_of_birth` | `DATE` | Optional | Date of birth, used to calculate age groups. |
+| `joining_date` | `DATE` | Required | Date the member joined the gym. |
+
+**Key relationships:** One member can have many membership records and many gym visits.
+
+### Entity 2 — `membership_plans`
+
+**Purpose:** Describe the membership options offered by the gym.
+
+| Attribute | MySQL data type | Key / constraint | Description |
+|---|---|---|---|
+| `plan_id` | `INT` | **PK**, auto-increment | Unique plan identifier. |
+| `plan_name` | `VARCHAR(100)` | Required, **UQ** | Name of the membership plan. |
+| `plan_level` | `VARCHAR(50)` | Required | Plan level, such as Basic or Premium. |
+| `duration` | `INT` | Required | Plan duration **in months**. |
+| `price` | `DECIMAL(10,2)` | Required | Listed price of the plan. |
+
+**Key relationships:** One plan can be used by many membership records. `plan_name` is a normal unique attribute, **not** a foreign key.
+
+### Entity 3 — `memberships`
+
+**Purpose:** Connect a member with a membership plan and retain subscription history.
+
+| Attribute | MySQL data type | Key / constraint | Description |
+|---|---|---|---|
+| `membership_id` | `INT` | **PK**, auto-increment | Unique membership record identifier. |
+| `member_id` | `INT` | Required, **FK** → `members.member_id` | Member who holds the membership. |
+| `plan_id` | `INT` | Required, **FK** → `membership_plans.plan_id` | Plan selected for this membership. |
+| `start_date` | `DATE` | Required | Date the membership begins. |
+| `end_date` | `DATE` | Optional | Date membership access ends, if known; also retained for canceled or expired memberships. |
+| `created_at` | `DATETIME` | Required | Date and time the membership record was created. |
+
+**Key relationships:** Each membership belongs to one member and one plan. A membership can have multiple payment records.
+
+**Design note:** A `NULL` `end_date` does not by itself prove that a membership is active. Because there is no separate membership-status field, the project must document how it interprets open-ended memberships and plan duration before reporting active membership totals.
+
+### Entity 4 — `gym_visits`
+
+**Purpose:** Record which member visited which branch, including entry and exit times.
+
+| Attribute | MySQL data type | Key / constraint | Description |
+|---|---|---|---|
+| `visit_id` | `INT` | **PK**, auto-increment | Unique gym visit identifier. |
+| `member_id` | `INT` | Required, **FK** → `members.member_id` | Member who made the visit. |
+| `location_id` | `INT` | Required, **FK** → `locations.location_id` | Branch visited. |
+| `check_in_at` | `DATETIME` | Required | Date and time of entry. |
+| `check_out_at` | `DATETIME` | Optional | Date and time of exit; remains `NULL` until the member checks out. |
+
+**Key relationships:** Each visit belongs to one member and one location. A member and a location can each have many visits.
+
+**Design note:** Visit duration can be calculated from `check_in_at` and `check_out_at` for completed visits. Incomplete visits should be handled separately in duration analysis.
+
+### Entity 5 — `payments`
+
+**Purpose:** Record payments for memberships and attribute payments to gym locations.
+
+| Attribute | MySQL data type | Key / constraint | Description |
+|---|---|---|---|
+| `payment_id` | `INT` | **PK**, auto-increment | Unique payment identifier. |
+| `membership_id` | `INT` | Required, **FK** → `memberships.membership_id` | Membership associated with the payment. |
+| `location_id` | `INT` | Required, **FK** → `locations.location_id` | Location credited with the payment. |
+| `amount` | `DECIMAL(10,2)` | Required | Recorded payment amount. |
+| `paid_at` | `DATE` | Required | Date of the payment. |
+
+**Key relationships:** Each payment belongs to one membership and one location. A membership or location can have many payments.
+
+**Design note:** Members are linked to payments indirectly through `memberships`; a separate `member_id` column is not needed. Revenue by location means **payments attributed to that branch**, not necessarily payments made by visitors to that branch.
+
+### Entity 6 — `locations`
+
+**Purpose:** Store basic information for each gym branch.
+
+| Attribute | MySQL data type | Key / constraint | Description |
+|---|---|---|---|
+| `location_id` | `INT` | **PK**, auto-increment | Unique branch identifier. |
+| `location_name` | `VARCHAR(100)` | Required | Name of the gym branch. |
+| `borough_name` | `VARCHAR(50)` | Required | Borough where the gym is located. |
+| `opening_time` | `TIME` | Required | Standard opening time. |
+| `closing_time` | `TIME` | Required | Standard closing time. |
+| `is_active` | `BOOLEAN` | Required; default `TRUE` | Whether the branch is active. |
+
+**Key relationships:** One location can have many gym visits and many payments.
+
+**Design note:** The opening and closing times are simplified standard hours; this schema does not track separate schedules for weekdays, weekends, or holidays.
+
+## 3. Primary keys and foreign keys
+
+### Primary keys
+
+| Table | Primary key |
 |---|---|
-| AQ-01 Peak usage by day, hour, plan, and age | `gym_visits` → `members`, plus valid `memberships` → `membership_plans` for the visit date. Count visits and derive hour/day/age group. |
-| AQ-02 Popular classes and amenities | `class_enrollments` → `class_sessions` → `class_types`; `amenity_reservations` → `amenities`. Count bookings/attended/completed; approximate reservation-based utilization using bookings and capacity. |
-| AQ-03 Trial conversion within 30 days | `free_trials` → `members` → `memberships`; compare paid membership `start_date` with trial `end_date`. |
-| AQ-04 Membership plan performance | `membership_plans` → `memberships` → `payments`; count subscriptions/renewals and sum completed, non-refunded receipts. |
-| AQ-05 Usage by demographics | `members` → `gym_visits`, `class_enrollments`, `amenity_reservations`, plus `memberships` for membership categories. Calculate age groups at the relevant event date. |
+| `members` | `member_id` |
+| `membership_plans` | `plan_id` |
+| `memberships` | `membership_id` |
+| `gym_visits` | `visit_id` |
+| `payments` | `payment_id` |
+| `locations` | `location_id` |
 
-## 7. Assumptions to confirm before Step 3
+### Foreign keys and relationships
 
-1. **One gym location.** No `locations` table is needed.
-2. **Prices are per plan term.** The duration is measured in months.
-3. **Bookings reserve spots.** `guest_count` counts amenity capacity, while each class enrollment counts one class seat.
-4. **No overlapping eligible paid memberships per member** unless the team defines a rule for which one controls access and reporting.
-5. **Trial participants are stored in `members`**, even before purchasing a subscription.
-6. **A converted trial** is one where a paying membership starts within 30 days *after* trial end. Other definitions are possible, but the team must use one consistently.
-7. **Broad benefit levels only.** More detailed service-based access requires adding entities beyond the original 11.
-8. **Payment revenue report** means completed, non-refunded receipts; financial accounting recognition is outside scope.
-9. **Trainer schedules, multiple branches, and automated billing** are outside scope.
+All **six relationships** are **one-to-many (1:N)**. The foreign-key columns are required (`NOT NULL`).
 
-## 8. Completion checklist
+| Parent table (one) | Child table (many) | Foreign key in child |
+|---|---|---|
+| `members` | `memberships` | `memberships.member_id` |
+| `membership_plans` | `memberships` | `memberships.plan_id` |
+| `members` | `gym_visits` | `gym_visits.member_id` |
+| `locations` | `gym_visits` | `gym_visits.location_id` |
+| `memberships` | `payments` | `payments.membership_id` |
+| `locations` | `payments` | `payments.location_id` |
 
-- [x] Identified all 11 core business entities.
-- [x] Defined the candidate attributes and MySQL data types for each entity.
-- [x] Marked each primary and foreign key.
-- [x] Identified required versus optional attributes.
-- [x] Identified uniqueness, validation, and historical-data rules.
-- [x] Mapped all entities to requirements and analytical questions.
-- [x] Documented assumptions and limitations for the initial scope.
+A parent row can have **zero or many** corresponding child rows, but each child row references **exactly one** parent in each required relationship.
 
-**Next step (Step 3):** Draw the entity-relationship diagram (ERD), specifying crow's-foot cardinalities, optional participation, and the candidate key and relationship constraints. After review, translate the logical design into MySQL `CREATE TABLE` statements.
+## 4. Basic business rules
+
+1. Each table has a unique primary key.
+2. A member's email must be unique.
+3. Each membership connects one existing member to one existing membership plan.
+4. A member may have several membership records over time.
+5. Members with valid memberships can visit any active gym location; subscriptions are not restricted to one branch.
+6. Every gym visit records both the member and the location visited.
+7. `check_out_at` may be `NULL` while a visit is in progress.
+8. `end_date` may be `NULL` when the membership end date is not known or recorded.
+9. Every payment is associated with one membership and one location.
+10. Past memberships, visits, and payments are retained for reporting.
+
+### Validations to consider during MySQL implementation
+
+These checks are **proposed rules for Step 5**, not additional attributes or tables:
+
+- `membership_plans.duration > 0`
+- `membership_plans.price >= 0`
+- `payments.amount > 0`
+- `memberships.end_date >= memberships.start_date` when `end_date` is not `NULL`
+- `gym_visits.check_out_at >= gym_visits.check_in_at` when `check_out_at` is not `NULL`
+- Membership eligibility and active-branch access must be checked by queries or application logic; foreign keys alone do not enforce them.
+
+## 5. Support for analytical questions
+
+| Business question | Tables used |
+|---|---|
+| Which locations, days, and hours are busiest? | `gym_visits`, `locations` |
+| Which membership plans are selected most often? | `memberships`, `membership_plans` |
+| How do payment totals compare across branches and boroughs? | `payments`, `locations` |
+| How does gym attendance vary by member age group? | `members`, `gym_visits` |
+| How frequently do members visit and how long do they stay? | `members`, `gym_visits` |
+
+## 6. Summary and next step
+
+| Design item | Total |
+|---|---:|
+| Entities (tables) | **6** |
+| Attributes (columns) | **34** |
+| Primary keys | **6** |
+| Foreign keys | **6** |
+| One-to-many relationships | **6** |
+
+**Next step — Step 3:** Use these exact six tables and six foreign-key relationships to update `diagrams/03_gym_database.dbml` and generate the Crow's Foot ER diagram. After that, review the schema for normalization (1NF, 2NF, 3NF) before writing MySQL `CREATE TABLE` statements.
