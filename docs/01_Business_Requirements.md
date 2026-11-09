@@ -68,11 +68,7 @@ The project should answer these five business questions using SQL:
 4. **Demographics:** How does gym usage vary across member age groups?
 5. **Member activity:** How frequently do members visit, and how long do they stay?
 
-## 7. Out of Scope
-
-The project does not cover free trials, class scheduling, amenity reservations, employee management, payment processing integrations, or an application interface.
-
-## 8. Success Criteria
+## 7. Success Criteria
 
 The project is complete when:
 
@@ -81,7 +77,4 @@ The project is complete when:
 - Member, membership, payment, and visit data can be joined correctly.
 - SQL queries answer the five analytical questions.
 - The database design, ER diagram, and query findings are documented.
-
 ---
-
-**Next project step:** Review the six-table data dictionary and ER diagram against these requirements, then validate normalization before implementing the MySQL schema.
