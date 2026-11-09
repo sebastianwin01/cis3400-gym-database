@@ -2,140 +2,233 @@
 
 **Project:** CIS 3400 — Luxury Gym Management Database  
 **Database target:** MySQL 8  
-**Data model:** Multi-location, network-wide membership access  
-**Source of truth:** `03_gym_database.dbml`  
-**Visual:** `03_gym_erd.png` (also provided as `03_gym_erd.svg`)  
-**Status:** Step 3 logical design; tables have **not** yet been implemented in MySQL.
+**Model:** Simplified relational database with multiple gym locations  
+**DBML source:** `diagrams/03_gym_database.dbml`  
+**ER diagram:** `diagrams/03_gym_erd.png`  
+**Status:** Logical design completed; MySQL tables are created in a later step.
 
-## 1. Goal and result
+## 1. Purpose
 
-Translate the Step 2 data dictionary into an editable, relational schema and visualize it in Crow's Foot notation. The current design contains **12 tables, 97 attributes, and 18 foreign-key relationships**. DBML records primary keys, foreign keys, required/optional fields, uniqueness, indexes, and row-level checks.
+The purpose of Step 3 is to turn the six tables defined in Step 2 into a logical database model. The model uses **DBML (Database Markup Language)** to describe tables, fields, primary keys, foreign keys, and relationships. The ER diagram provides a visual view of how the tables connect.
 
-The model follows these policies:
+| Design item | Total |
+|---|---:|
+| Tables | **6** |
+| Attributes (columns) | **34** |
+| Primary keys | **6** |
+| Foreign keys | **6** |
+| One-to-many relationships | **6** |
 
-- A valid paid membership gives access to **any active branch**, irrespective of the member's home location or membership's sales location.
-- A valid free trial also permits network-wide gym access in this classroom version. The registration location is used for reporting only.
-- Class or amenity access requires the corresponding `includes_classes` or `includes_amenities` entitlement and a valid subscription/trial.
-- Branch-specific facts store a location directly; records whose parent identifies the location do not duplicate it.
-- `membership_plans` and `class_types` are shared catalogs, not per-location catalogs.
+This step documents the design only. Actual MySQL `CREATE TABLE` statements and validation rules will be written in Step 5.
 
-## 2. Entity inventory
+## 2. The six tables
 
-| ID | Table | Role |
+| Table | Attributes | Purpose |
+|---|---:|---|
+| `members` | 7 | Basic information about gym members. |
+| `membership_plans` | 5 | Membership options, prices, and duration. |
+| `memberships` | 6 | Links members to plans and keeps membership history. |
+| `gym_visits` | 5 | Tracks check-ins and check-outs at gym branches. |
+| `payments` | 5 | Records membership payments credited to a location. |
+| `locations` | 6 | Names, boroughs, and standard operating hours of branches. |
+
+No additional tables are part of this version. Free trials, exercise classes, amenities, reservations, and employee scheduling are **out of scope**.
+
+## 3. Crow's Foot ER diagram
+
+The diagram below uses **Crow's Foot notation**. `||` represents exactly one parent, and `o{` represents zero or many child records.
+
+```mermaid
+erDiagram
+    members ||--o{ memberships : holds
+    membership_plans ||--o{ memberships : defines
+    members ||--o{ gym_visits : makes
+    locations ||--o{ gym_visits : receives
+    memberships ||--o{ payments : has
+    locations ||--o{ payments : receives
+
+    members {
+        int member_id PK
+        varchar first_name
+        varchar last_name
+        varchar email UK
+        varchar phone
+        date date_of_birth
+        date joining_date
+    }
+    membership_plans {
+        int plan_id PK
+        varchar plan_name UK
+        varchar plan_level
+        int duration
+        decimal price
+    }
+    memberships {
+        int membership_id PK
+        int member_id FK
+        int plan_id FK
+        date start_date
+        date end_date
+        datetime created_at
+    }
+    gym_visits {
+        int visit_id PK
+        int member_id FK
+        int location_id FK
+        datetime check_in_at
+        datetime check_out_at
+    }
+    payments {
+        int payment_id PK
+        int membership_id FK
+        int location_id FK
+        decimal amount
+        date paid_at
+    }
+    locations {
+        int location_id PK
+        varchar location_name
+        varchar borough_name
+        time opening_time
+        time closing_time
+        boolean is_active
+    }
+```
+
+The ER diagram can also be generated in [dbdiagram.io](https://dbdiagram.io) using the DBML in Section 5.
+
+## 4. Relationships and cardinalities
+
+All six foreign keys are **required** (`NOT NULL`). Each child record refers to exactly one parent record; a parent may have no related child records or many.
+
+| Parent table (1) | Child table (0..many) | Foreign key in child |
 |---|---|---|
-| E01 | `locations` | Physical branches and local time zone |
-| E02 | `members` | Global member profiles and optional preferred branch |
-| E03 | `membership_plans` | Shared plan and benefit catalog |
-| E04 | `memberships` | Purchased terms, renewals, and sales attribution |
-| E05 | `free_trials` | Trial terms and registration attribution |
-| E06 | `gym_visits` | Actual member check-ins by branch |
-| E07 | `amenities` | Branch-specific bookable facilities |
-| E08 | `amenity_reservations` | Reservations for individual amenities |
-| E09 | `class_types` | Shared class definitions |
-| E10 | `class_sessions` | Timed classes at specific branches |
-| E11 | `class_enrollments` | Members booked into sessions |
-| E12 | `payments` | Membership payment attempts and receipts |
+| `members` | `memberships` | `memberships.member_id` |
+| `membership_plans` | `memberships` | `memberships.plan_id` |
+| `members` | `gym_visits` | `gym_visits.member_id` |
+| `locations` | `gym_visits` | `gym_visits.location_id` |
+| `memberships` | `payments` | `payments.membership_id` |
+| `locations` | `payments` | `payments.location_id` |
 
-Every table has an auto-generated `BIGINT UNSIGNED` primary key.
+**Notes:**
 
-## 3. Relationships: Crow's Foot cardinalities
+- `memberships` links a member to a selected plan. A member can have several membership records over time.
+- `gym_visits` links a member to the **actual location visited**. A valid membership may be used at any active branch.
+- `payments` connects to `memberships`, so the member associated with a payment can be found through a join; no extra `payments.member_id` column is needed.
+- The payment's `location_id` records the branch **credited with the payment**. It does not necessarily indicate where the member visited that day.
 
-In the DBML, `Ref: child.foreign_key > parent.primary_key` represents a many-to-one relationship: **each child references one parent**, and **one parent can have zero or many children**. `>?` marks a *nullable/optional* parent reference. Each column's `not null` setting agrees with that optionality.
+## 5. DBML design
 
-| Parent (one) | Child (many) | Child FK | Required? |
-|---|---|---|---|
-| `locations` | `members` | `home_location_id` | No |
-| `locations` | `memberships` | `sold_at_location_id` | No |
-| `locations` | `free_trials` | `registered_at_location_id` | Yes |
-| `locations` | `gym_visits` | `location_id` | Yes |
-| `locations` | `amenities` | `location_id` | Yes |
-| `locations` | `class_sessions` | `location_id` | Yes |
-| `locations` | `payments` | `collected_at_location_id` | No |
-| `members` | `memberships` | `member_id` | Yes |
-| `membership_plans` | `memberships` | `plan_id` | Yes |
-| `memberships` | `memberships` | `renewed_from_membership_id` | No |
-| `members` | `free_trials` | `member_id` | Yes |
-| `members` | `gym_visits` | `member_id` | Yes |
-| `members` | `amenity_reservations` | `member_id` | Yes |
-| `amenities` | `amenity_reservations` | `amenity_id` | Yes |
-| `class_types` | `class_sessions` | `class_type_id` | Yes |
-| `members` | `class_enrollments` | `member_id` | Yes |
-| `class_sessions` | `class_enrollments` | `class_session_id` | Yes |
-| `memberships` | `payments` | `membership_id` | Yes |
+Save the following as **`diagrams/03_gym_database.dbml`** and paste it into [dbdiagram.io](https://dbdiagram.io) to generate the ER diagram.
 
-*Relationship note:* The **18** FKs include **seven** FKs from child tables to `locations`, plus the membership self-reference.
+```dbml
+// CIS 3400 — Luxury Gym Management Database
+// Step 3: Logical design (exactly 6 tables, 34 attributes, 6 foreign keys)
 
-## 4. Many-to-many cases resolved by existing tables
+Table members {
+  member_id int [pk, increment]
+  first_name varchar(60) [not null]
+  last_name varchar(60) [not null]
+  email varchar(255) [not null, unique]
+  phone varchar(25)
+  date_of_birth date
+  joining_date date [not null]
+}
 
-- `members` ↔ `class_sessions` via `class_enrollments`.
-- `members` ↔ `amenities` via `amenity_reservations`.
-- `members` ↔ `membership_plans` via `memberships` (purchase history).
-- `members` ↔ `locations` via `gym_visits` (actual check-ins).
+Table membership_plans {
+  plan_id int [pk, increment]
+  plan_name varchar(100) [not null, unique]
+  plan_level varchar(50) [not null]
+  duration int [not null, note: 'Duration in months']
+  price decimal(10,2) [not null]
+}
 
-A `membership_location_access` table is **not** necessary because network-wide access is a global business rule. Adding location restrictions later would require changing the model.
+Table memberships {
+  membership_id int [pk, increment]
+  member_id int [not null]
+  plan_id int [not null]
+  start_date date [not null]
+  end_date date
+  created_at datetime [not null]
+}
 
-## 5. Integrity rules represented in DBML
+Table gym_visits {
+  visit_id int [pk, increment]
+  member_id int [not null]
+  location_id int [not null]
+  check_in_at datetime [not null]
+  check_out_at datetime
+}
 
-**Keys and uniqueness**
+Table payments {
+  payment_id int [pk, increment]
+  membership_id int [not null]
+  location_id int [not null]
+  amount decimal(10,2) [not null]
+  paid_at date [not null]
+}
 
-- Primary key for each of the 12 tables.
-- All 18 relationships are explicit foreign keys.
-- Global uniqueness: `members.email`, `locations.location_name`, `membership_plans.plan_name`, `class_types.class_name`.
-- Composite uniqueness: `amenities(location_id, amenity_name)` and `class_enrollments(member_id, class_session_id)`.
-- `payments.transaction_reference` is unique when provided; multiple `NULL` values are allowed by MySQL.
+Table locations {
+  location_id int [pk, increment]
+  location_name varchar(100) [not null]
+  borough_name varchar(50) [not null]
+  opening_time time [not null]
+  closing_time time [not null]
+  is_active boolean [not null, default: true]
+}
 
-**Checks (subject to SQL export review)**
+Ref: memberships.member_id > members.member_id
+Ref: memberships.plan_id > membership_plans.plan_id
+Ref: gym_visits.member_id > members.member_id
+Ref: gym_visits.location_id > locations.location_id
+Ref: payments.membership_id > memberships.membership_id
+Ref: payments.location_id > locations.location_id
+```
 
-- Membership/trial `end_date >= start_date`.
-- Visit check-out does not precede check-in.
-- Session and amenity reservation end times follow start times.
-- Capacities and booked guest counts are greater than zero.
-- Plan fees and payment amounts are nonnegative.
-- Controlled status values for memberships, trials, classes, reservations, enrollments, and payments.
+The `Ref:` statements describe the six links shown in the ER diagram. For example, `memberships.member_id > members.member_id` means that many membership records may point to one member.
 
-**Preservation**
+## 6. Business and data-integrity rules
 
-- Foreign keys are configured with `delete: restrict` to prevent accidental loss of related historical records. Close/deactivate records instead of deleting referenced data.
-- Past payment amounts are stored in `payments.amount` so that changing plan prices will not rewrite history.
+The DBML preserves the field definitions from Step 2:
 
-## 6. Important rules *not* enforced by basic PK/FK/CHECK alone
+- Each table has one auto-incrementing integer primary key.
+- `members.email` and `membership_plans.plan_name` are unique.
+- Every membership belongs to an existing member and plan.
+- Every gym visit belongs to an existing member and location.
+- Every payment belongs to an existing membership and location.
+- `memberships.end_date` may be `NULL` when no ending date has been recorded.
+- `gym_visits.check_out_at` may be `NULL` until a member leaves.
+- `locations.is_active` defaults to `TRUE`.
+- Membership plans are not tied to a single location; valid members may visit any active branch.
+- Historical membership, visit, and payment records should be retained for reporting.
 
-The database schema is only part of the application workflow. During later implementation, these require validated transactions, triggers, stored procedures, or application logic:
+**Checks to implement in MySQL later:** `duration > 0`, `price >= 0`, `amount > 0`, `end_date >= start_date` (when provided), and `check_out_at >= check_in_at` (when provided). These are implementation rules, **not new columns**. Primary and foreign keys alone cannot determine whether a member is currently eligible to enter a branch.
 
-1. **Check-in eligibility:** `location.is_active = true` and paid membership/trial status is active with the branch-local event date inside its eligible term.
-2. **Class/amenity eligibility:** class or amenity flag on the valid plan/trial; scheduled session/amenity belongs to an active location.
-3. **No overlapping eligible paid memberships** for one member.
-4. **No multiple simultaneously open gym visits** for one member across all locations.
-5. **Capacity-safe class booking** under concurrent enrollments.
-6. **Time-overlap-safe amenity reservations** based on sum of `guest_count` for the particular facility.
-7. **Prevent overlapping class sessions in a single room** at one location.
-8. **Valid payment lifecycle:** e.g. `completed` payments should have `paid_at`; refunds need clear reporting logic.
+Because `memberships` has no separate status field, the team must define how to interpret an open-ended membership (`end_date IS NULL`) when reporting active subscriptions.
 
-### Cancellation policy for classroom exercises
+## 7. Questions supported by the six-table design
 
-Treat a membership with `membership_status = 'canceled'` as **ineligible from the cancellation's effective time**. If a cancellation is scheduled for end of term, keep the membership active through its paid-through date and then change the status. This is an implementation convention to document explicitly in the SQL phase.
+| # | Business question | Tables used |
+|---|---|---|
+| 1 | Which locations, days, and hours have the most gym visits? | `gym_visits`, `locations` |
+| 2 | Which membership plans are selected most often? | `memberships`, `membership_plans` |
+| 3 | How do recorded payment totals compare across gym locations and boroughs? | `payments`, `locations` |
+| 4 | How does gym attendance vary across member age groups? | `members`, `gym_visits` |
+| 5 | How often do members visit, and how long is an average completed visit? | `members`, `gym_visits` |
 
-### Time-zone convention
+Age-group analysis should exclude or separately label members without a birth date. Visit-duration analysis should use completed visits with both check-in and check-out timestamps.
 
-Store event `DATETIME` values in UTC. Convert to `locations.time_zone` for local check-in day/hour reports and for evaluating **date-only** membership/trial entitlement windows. `opening_time` and `closing_time` are standard **local** times; weekday and holiday schedules are outside the current scope. In MySQL, named-zone conversion using `CONVERT_TZ()` may require loaded time-zone tables.
+## 8. Save and review the diagram
 
-## 7. How to use the DBML file in dbdiagram.io
+1. Open [dbdiagram.io](https://dbdiagram.io).
+2. Create a new diagram and select **DBML**.
+3. Paste the content of `diagrams/03_gym_database.dbml`.
+4. Verify that the editor shows **6 tables** and **6 relationship lines**.
+5. Arrange the tables so the relationships are easy to follow.
+6. Export the ER diagram as `diagrams/03_gym_erd.png`.
+7. Commit both the DBML source and the updated design document to GitHub.
 
-1. Open **https://dbdiagram.io** and create/open a diagram.
-2. Open `03_gym_database.dbml` in any text editor, copy the entire file, and paste into the left-side DBML editor.
-3. Confirm that **12 tables** appear and the lines show 18 foreign-key relationships. Rearrange tables for readability.
-4. Save the project; export the diagram as **PNG/SVG/PDF** if desired. Use the site's **Export → SQL → MySQL** option when ready for implementation.
-5. Keep the DBML file as the authoritative design in GitHub so edits remain reviewable in commits.
-
-The provided `03_gym_erd.png` was **rendered locally** from the same source file and includes Crow's Foot cardinality markers; it is not a screenshot or direct dbdiagram.io export. Regenerating it in dbdiagram.io may produce a different visual layout, but it should reflect the same logical schema.
-
-**Official references:**
-
-- DBML syntax: https://dbml.dbdiagram.io/docs/
-- dbdiagram editor/export: https://docs.dbdiagram.io/basic-editing-experience/
-- Relationship cardinality: https://docs.dbdiagram.io/relationships/
-
-## 8. Suggested GitHub structure
+### Expected repository files
 
 ```text
 cis3400-gym-database/
@@ -143,28 +236,22 @@ cis3400-gym-database/
 │   ├── 01_business_requirements.md
 │   ├── 02_entities_and_attributes.md
 │   └── 03_database_design.md
-├── diagrams/
-│   ├── 03_gym_database.dbml
-│   ├── 03_gym_erd.png
-│   └── 03_gym_erd.svg
-└── sql/
-    └── create_tables.sql   # created in a later implementation step
+└── diagrams/
+    ├── 03_gym_database.dbml
+    └── 03_gym_erd.png
 ```
 
-Suggested commit message:
+## 9. Completion checklist
 
-```text
-Add multi-location gym DBML schema and Crow's Foot ER diagram
-```
+- [x] Include only the six approved tables.
+- [x] Preserve all 34 attributes from Step 2.
+- [x] Define one primary key per table.
+- [x] Define the six required foreign keys.
+- [x] Show all six one-to-many relationships.
+- [x] Document nullable fields and important business rules.
+- [ ] Confirm the diagram renders correctly in dbdiagram.io.
+- [ ] Review the design for 1NF, 2NF, and 3NF in Step 4.
 
-## 9. Review before Step 4 (normalization)
+**Next step:** Step 4 — Normalize the database schema.
 
-- [x] All 12 Step 2 entities represented.
-- [x] Original Step 2 attributes preserved, including optional location associations.
-- [x] All 18 foreign keys defined, including the self-reference for renewals.
-- [x] Direct versus derived location references modeled consistently.
-- [x] Many-to-many relationships represented using associative tables.
-- [x] Unique, required, indexing, and row-level checks proposed.
-- [ ] Run DBML through dbdiagram.io to inspect any export warnings and the visual layout.
-- [ ] Evaluate 1NF, 2NF, 3NF and any dependency issues in **Step 4**.
-- [ ] Review generated MySQL `CREATE TABLE` DDL and transaction requirements during implementation.
+**Suggested commit message:** `Update Step 3 ER diagram and DBML to six-table design`
