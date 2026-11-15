@@ -175,4 +175,33 @@ This query uses the actual `check_in_at` field and counts **visit records**, not
 - [ ] Query results and main findings are documented clearly.
 - [ ] The README explains the project, structure, and how to run its scripts.
 
+## Example questions from datacamp exercises for window funtions 
+1. to mix agregate data with non-agragate data
+   - how many goals were scored in each match in 2011/2012 and how did that compared to the average
+   (you can do that using a subqury or a window funtion to simplify)
+```sql
+SELECT
+  date
+  (home_goal + away_goal) AS goals,
+  (SELECT AVG(home_goal + away _goal)
+    FROM match
+    WHERE season = '2011/2012') AS averall_avg
+FROM match
+WHERE season = '2011/2012';
+```
+IS EQUIVALENT TO 
+
+```sql
+SELECT
+  date,
+  (home_goal + away_goal) AS goals,
+  AVG(home_goal + away_goal) OVER() AS overall_avg
+FROM match
+WHERE season = '2011/2012';
+```
+
+
+
+   
 **Next milestone:** Finalize the six-table ER diagram, then document normalization before implementing the tables in MySQL.
+
