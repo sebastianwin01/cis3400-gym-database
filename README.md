@@ -1,5 +1,5 @@
 # Luxury Gym Management Database
-# Remember to include a view and a triger into the project #
+# Remember to include a view and a triger into the project, also include procedures #
 **Course:** CIS 3400  
 **Database:** MySQL 8  
 **Focus:** Relational database design, data integrity, and SQL analysis
