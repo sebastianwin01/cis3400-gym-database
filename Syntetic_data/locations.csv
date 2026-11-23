@@ -1,6 +1,0 @@
-location_id,location_name,borough_name,opening_time,closing_time,is_active
-1,Astoria Club,Queens,05:30:00,23:00:00,1
-2,Midtown Club,Manhattan,05:00:00,23:00:00,1
-3,Williamsburg Club,Brooklyn,06:00:00,22:00:00,1
-4,Fordham Club,Bronx,06:00:00,22:00:00,1
-5,St. George Club,Staten Island,06:00:00,21:00:00,1
