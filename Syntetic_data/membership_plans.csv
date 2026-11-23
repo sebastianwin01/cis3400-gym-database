@@ -1,0 +1,7 @@
+plan_id,plan_name,plan_level,duration,price
+1,Essential Monthly,Essential,1,75.00
+2,Plus Monthly,Plus,1,125.00
+3,Elite Monthly,Elite,1,195.00
+4,Plus Quarterly,Plus,3,345.00
+5,Elite Annual,Elite,12,1950.00
+6,Essential Annual,Essential,12,780.00
