@@ -1,6 +1,6 @@
 CREATE DATABASE luxury_gym;
 use luxury_gym;
---
+
 CREATE TABLE  membership_plans (
     plan_id int AUTO_INCREMENT PRIMARY KEY,
     plan_name varchar(100),
